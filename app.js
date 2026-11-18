@@ -1,14 +1,16 @@
 /**
  * ============================================================================
- * XENOX SMART AUTOMATION SYSTEM — CORE APPLICATION ENGINE
+ * XENOX SMART AUTOMATION SYSTEM — FACILITY BUILDING MANAGEMENT ENGINE
  * ============================================================================
  * Connects Arduino UNO Sensors (DHT11, PIR, LDR, HC-SR04), 2-Channel Relay
- * Module (AC Fan, Room Lamp), Python Gateway Bridge, and Phone Companion.
+ * Module (AC Fan/FCU, Zone Lighting), Python Gateway Bridge, and Mobile App.
+ * Tailored for Building, Hotel, and Hospital Facility Managers.
  */
 
 // Application State
 const xenoxState = {
   mode: 'auto', // 'auto' | 'manual'
+  activeZone: 'hotel', // 'hotel' | 'hospital' | 'office' | 'commercial'
   connection: {
     type: 'simulated', // 'simulated' | 'gateway'
     gatewayUrl: 'http://localhost:8000',
@@ -25,10 +27,10 @@ const xenoxState = {
     humidity: 54,          // DHT11 Relative Humidity in %
     lightPct: 22,          // LDR Ambient Light %
     lightLux: 220,         // Estimated lux
-    distanceCm: 150,       // HC-SR04 Ultrasonic Distance in cm
-    pirMotion: true,       // PIR Motion detected
-    pirHoldRemaining: 30,  // Active motion countdown window in seconds
-    securityAlert: false   // Proximity intrusion alert
+    distanceCm: 150,       // HC-SR04 Ultrasonic Clearance in cm
+    pirMotion: true,       // Room occupancy detected
+    pirHoldRemaining: 30,  // Occupancy countdown window in seconds
+    proximityEvent: false  // Doorway / entrance traffic event
   },
 
   // Actuators & 2-Channel Relays
@@ -47,19 +49,19 @@ const xenoxState = {
       watts: 18,
       currentPower: 0,
       lumens: 0,
-      triggerReason: 'Evaluating PIR occupancy and LDR daylight...'
+      triggerReason: 'Evaluating room occupancy and natural light level...'
     }
   },
 
-  // Automation Thresholds
+  // Facility Automation Thresholds
   thresholds: {
-    temp: 28.0,            // °C limit to trigger Fan
-    light: 40,             // % darkness limit to allow Lamp
-    distance: 50,          // cm proximity alert limit
-    pirTimeout: 30         // seconds to hold lamp ON after motion
+    temp: 28.0,            // °C cooling setpoint
+    light: 40,             // % darkness limit for automatic lighting
+    distance: 50,          // cm entrance proximity trigger limit
+    pirTimeout: 30         // seconds to hold lighting after room vacancy
   },
 
-  // Energy & Eco Model
+  // Energy & Facility Eco Model
   energy: {
     currency: '$',
     tariffPerKwh: 0.15,
@@ -70,8 +72,8 @@ const xenoxState = {
     annualCo2Saved: 0
   },
 
-  // Active Presets
-  activePreset: 'evening',
+  // Active Profile
+  activeProfile: 'hotel',
 
   // Telemetry History (for real-time charting)
   history: {
@@ -88,7 +90,7 @@ const xenoxState = {
 };
 
 /* ============================================================================
-   WEB AUDIO API SYNTHESIZER (RELAY CLICKS & ALARMS)
+   AUDIO FEEDBACK SYNTHESIZER (RELAY CLICKS & CHIMES)
    ============================================================================ */
 function initAudio() {
   if (!xenoxState.audioCtx) {
@@ -113,10 +115,10 @@ function playRelayClickSound(isOn) {
     const gain = ctx.createGain();
 
     osc.type = isOn ? 'square' : 'triangle';
-    osc.frequency.setValueAtTime(isOn ? 820 : 640, ctx.currentTime);
+    osc.frequency.setValueAtTime(isOn ? 760 : 540, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(isOn ? 220 : 180, ctx.currentTime + 0.04);
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.045);
 
     osc.connect(gain);
@@ -124,12 +126,10 @@ function playRelayClickSound(isOn) {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.05);
-  } catch (e) {
-    // Audio context may require user interaction
-  }
+  } catch (e) {}
 }
 
-function playSecurityAlertBeep() {
+function playDoorwayChime() {
   if (!xenoxState.soundEnabled) return;
   try {
     initAudio();
@@ -138,18 +138,18 @@ function playSecurityAlertBeep() {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
 
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start();
-    osc.stop(ctx.currentTime + 0.18);
+    osc.stop(ctx.currentTime + 0.28);
   } catch (e) {}
 }
 
@@ -159,33 +159,33 @@ function playSecurityAlertBeep() {
 function evaluateAutomationLogic() {
   const prevFanState = xenoxState.relays.fan.active;
   const prevLampState = xenoxState.relays.lamp.active;
-  const prevAlert = xenoxState.env.securityAlert;
+  const prevApproach = xenoxState.env.proximityEvent;
 
-  // 1. Proximity / Ultrasonic Intruder Alert Evaluation
-  const isTooClose = xenoxState.env.distanceCm <= xenoxState.thresholds.distance;
-  xenoxState.env.securityAlert = isTooClose && xenoxState.env.pirMotion;
-  if (xenoxState.env.securityAlert && !prevAlert) {
-    logEvent('HC-SR04', `Proximity Breach: Object at ${xenoxState.env.distanceCm} cm (< ${xenoxState.thresholds.distance} cm limit)`, 'SECURITY ALERT');
-    playSecurityAlertBeep();
+  // 1. Doorway Proximity Clearance Evaluation
+  const isApproaching = xenoxState.env.distanceCm <= xenoxState.thresholds.distance;
+  xenoxState.env.proximityEvent = isApproaching;
+  if (isApproaching && !prevApproach) {
+    logEvent('HC-SR04', `Entrance clearance &le; ${xenoxState.env.distanceCm} cm (Traffic detected)`, 'Doorway Approach Triggered');
+    playDoorwayChime();
   }
 
-  // 2. Relay CH1: AC Fan Evaluation
+  // 2. Relay CH1: Ventilation / AC Fan Evaluation
   const fanMode = xenoxState.relays.fan.mode;
   if (fanMode === 'auto') {
     const shouldFanBeOn = xenoxState.env.temp >= xenoxState.thresholds.temp;
     xenoxState.relays.fan.active = shouldFanBeOn;
     xenoxState.relays.fan.triggerReason = shouldFanBeOn
-      ? `Auto: Room temp (${xenoxState.env.temp.toFixed(1)}°C) ≥ ${xenoxState.thresholds.temp.toFixed(1)}°C threshold.`
-      : `Auto: Room temp (${xenoxState.env.temp.toFixed(1)}°C) < ${xenoxState.thresholds.temp.toFixed(1)}°C threshold.`;
+      ? `Auto Control: Room temp (${xenoxState.env.temp.toFixed(1)}°C) ≥ ${xenoxState.thresholds.temp.toFixed(1)}°C cooling setpoint.`
+      : `Auto Control: Room temp (${xenoxState.env.temp.toFixed(1)}°C) < ${xenoxState.thresholds.temp.toFixed(1)}°C cooling setpoint.`;
   } else {
-    xenoxState.relays.fan.triggerReason = `Manual Override: Switch is ${xenoxState.relays.fan.active ? 'ON' : 'OFF'}.`;
+    xenoxState.relays.fan.triggerReason = `Manager Manual Override: Fan is ${xenoxState.relays.fan.active ? 'ENERGIZED (ON)' : 'OFF'}.`;
   }
 
   // Calculate fan power & RPM
   xenoxState.relays.fan.currentPower = xenoxState.relays.fan.active ? xenoxState.relays.fan.watts : 0;
   xenoxState.relays.fan.rpm = xenoxState.relays.fan.active ? 1420 : 0;
 
-  // 3. Relay CH2: Room Lamp Evaluation
+  // 3. Relay CH2: Smart Lighting Evaluation
   const lampMode = xenoxState.relays.lamp.mode;
   const isOccupied = xenoxState.env.pirMotion && xenoxState.env.pirHoldRemaining > 0;
   const isDark = xenoxState.env.lightPct < xenoxState.thresholds.light;
@@ -195,16 +195,16 @@ function evaluateAutomationLogic() {
     xenoxState.relays.lamp.active = shouldLampBeOn;
 
     if (shouldLampBeOn) {
-      xenoxState.relays.lamp.triggerReason = `Auto: Motion active & dark (${xenoxState.env.lightPct}% < ${xenoxState.thresholds.light}% threshold).`;
+      xenoxState.relays.lamp.triggerReason = `Auto Control: Room occupied & daylight is low (${xenoxState.env.lightPct}% < ${xenoxState.thresholds.light}%).`;
     } else if (!isOccupied && !isDark) {
-      xenoxState.relays.lamp.triggerReason = `Auto: Vacant & daylight present (${xenoxState.env.lightPct}%).`;
+      xenoxState.relays.lamp.triggerReason = `Auto Control: Room vacant & sufficient natural daylight (${xenoxState.env.lightPct}%).`;
     } else if (!isOccupied) {
-      xenoxState.relays.lamp.triggerReason = `Auto: No motion detected (PIR idle).`;
+      xenoxState.relays.lamp.triggerReason = `Auto Control: Room is vacant (PIR timeout).`;
     } else {
-      xenoxState.relays.lamp.triggerReason = `Auto: Daylight sufficient (${xenoxState.env.lightPct}% ≥ ${xenoxState.thresholds.light}%).`;
+      xenoxState.relays.lamp.triggerReason = `Auto Control: Daylight harvesting active (${xenoxState.env.lightPct}% ≥ ${xenoxState.thresholds.light}%).`;
     }
   } else {
-    xenoxState.relays.lamp.triggerReason = `Manual Override: Switch is ${xenoxState.relays.lamp.active ? 'ON' : 'OFF'}.`;
+    xenoxState.relays.lamp.triggerReason = `Manager Manual Override: Lighting is ${xenoxState.relays.lamp.active ? 'ENERGIZED (ON)' : 'OFF'}.`;
   }
 
   // Calculate lamp power & lumens
@@ -214,7 +214,7 @@ function evaluateAutomationLogic() {
   // Log state transitions & trigger clicks
   if (prevFanState !== xenoxState.relays.fan.active) {
     logEvent(
-      fanMode === 'auto' ? 'DHT11 / Auto' : 'Manual Switch',
+      fanMode === 'auto' ? 'DHT11 / Auto' : 'Manager Switch',
       xenoxState.relays.fan.triggerReason,
       `Relay CH1 (Fan) → ${xenoxState.relays.fan.active ? 'ENERGIZED (ON)' : 'DE-ENERGIZED (OFF)'}`
     );
@@ -223,9 +223,9 @@ function evaluateAutomationLogic() {
 
   if (prevLampState !== xenoxState.relays.lamp.active) {
     logEvent(
-      lampMode === 'auto' ? 'PIR+LDR / Auto' : 'Manual Switch',
+      lampMode === 'auto' ? 'PIR+LDR / Auto' : 'Manager Switch',
       xenoxState.relays.lamp.triggerReason,
-      `Relay CH2 (Lamp) → ${xenoxState.relays.lamp.active ? 'ENERGIZED (ON)' : 'DE-ENERGIZED (OFF)'}`
+      `Relay CH2 (Lighting) → ${xenoxState.relays.lamp.active ? 'ENERGIZED (ON)' : 'DE-ENERGIZED (OFF)'}`
     );
     playRelayClickSound(xenoxState.relays.lamp.active);
   }
@@ -241,11 +241,10 @@ function updateEnergyEstimates() {
   const fanW = xenoxState.relays.fan.watts;
   const lampW = xenoxState.relays.lamp.watts;
 
-  // Base manual energy consumption without smart sensors:
+  // Base unautomated manual energy consumption:
   const baselineDailyKwh = (fanW * e.baselineFanHrs + lampW * e.baselineLampHrs) / 1000;
 
-  // Sensor-governed duty cycle based on thresholds:
-  // Higher temp threshold means fan runs fewer hours; lower light limit + short timeout means lamp runs fewer hours
+  // Sensor-governed duty cycle:
   const tempRatio = Math.max(0.2, Math.min(0.85, 1 - (xenoxState.thresholds.temp - 18) * 0.035));
   const lightRatio = Math.max(0.15, Math.min(0.8, (xenoxState.thresholds.light / 100) * (xenoxState.thresholds.pirTimeout / 60)));
 
@@ -257,7 +256,7 @@ function updateEnergyEstimates() {
 
   e.dailyKwhSaved = Number(savedDailyKwh.toFixed(2));
   e.monthlyCostSaved = Number((savedDailyKwh * 30 * e.tariffPerKwh).toFixed(2));
-  e.annualCo2Saved = Math.round(savedDailyKwh * 365 * 0.82); // 0.82 kg CO2 per kWh avg
+  e.annualCo2Saved = Math.round(savedDailyKwh * 365 * 0.82); // 0.82 kg CO2 per kWh
 }
 
 /* ============================================================================
@@ -284,14 +283,14 @@ function renderEventLogs() {
   if (!tbody) return;
 
   if (xenoxState.eventLogs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:24px;">No automation events recorded yet. Adjust sensor values to trigger relays.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:24px;">No facility events recorded yet. Adjust sensor values to trigger relays.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = xenoxState.eventLogs.map((item) => {
     let badgeClass = 'badge-optimal';
     if (item.action.includes('ON') || item.action.includes('ENERGIZED')) badgeClass = 'badge-warning';
-    if (item.action.includes('ALERT') || item.source.includes('HC-SR04')) badgeClass = 'badge-alert';
+    if (item.source.includes('HC-SR04')) badgeClass = 'badge-optimal';
 
     return `
       <tr>
@@ -305,7 +304,7 @@ function renderEventLogs() {
 }
 
 function exportEventLogCsv() {
-  const header = "Timestamp,Source,Condition,RelayAction\n";
+  const header = "Timestamp,Source,Condition,ActionTaken\n";
   const rows = xenoxState.eventLogs.map(log => 
     `"${log.time}","${log.source}","${log.condition.replace(/"/g, '""')}","${log.action}"`
   ).join("\n");
@@ -314,7 +313,7 @@ function exportEventLogCsv() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `xenox_automation_events_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `xenox_facility_events_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -328,11 +327,10 @@ function renderAll() {
 
   renderSensorsUI();
   renderRelaysUI();
-  renderSecurityAndRadar();
+  renderAccessClearanceUI();
   renderTopologySchematic();
   renderEnergyUI();
   renderCodeSnippets();
-  syncPhoneCompanion();
 }
 
 function renderSensorsUI() {
@@ -340,9 +338,9 @@ function renderSensorsUI() {
   const tempGauge = document.getElementById('gauge-temp-fill');
   const tempNum = document.getElementById('val-temp-num');
   const tempStatus = document.getElementById('badge-temp-status');
+  const tempComfort = document.getElementById('label-temp-comfort');
   if (tempNum) tempNum.textContent = xenoxState.env.temp.toFixed(1);
   if (tempGauge) {
-    // 377 is full circle circumference. min: 15, max: 45
     const pct = Math.max(0, Math.min(1, (xenoxState.env.temp - 15) / 30));
     const offset = 377 - (377 * pct);
     tempGauge.style.strokeDashoffset = offset;
@@ -350,8 +348,11 @@ function renderSensorsUI() {
   }
   if (tempStatus) {
     const isHot = xenoxState.env.temp >= xenoxState.thresholds.temp;
-    tempStatus.textContent = isHot ? 'WARM / FAN ON' : 'OPTIMAL';
+    tempStatus.textContent = isHot ? 'COOLING ACTIVE' : 'TARGET ACHIEVED';
     tempStatus.className = `badge ${isHot ? 'badge-warning' : 'badge-optimal'}`;
+  }
+  if (tempComfort) {
+    tempComfort.textContent = xenoxState.env.temp > 28 ? 'Comfort: Warm' : (xenoxState.env.temp < 20 ? 'Comfort: Cool' : 'Comfort: Optimal');
   }
 
   // Humidity
@@ -365,7 +366,7 @@ function renderSensorsUI() {
     humGauge.style.strokeDashoffset = offset;
   }
   if (humStatus) {
-    humStatus.textContent = xenoxState.env.humidity > 70 ? 'HIGH' : (xenoxState.env.humidity < 30 ? 'DRY' : 'NORMAL');
+    humStatus.textContent = xenoxState.env.humidity > 70 ? 'HIGH' : (xenoxState.env.humidity < 30 ? 'DRY' : 'HEALTHY RANGE');
     humStatus.className = 'badge badge-optimal';
   }
 
@@ -383,7 +384,7 @@ function renderSensorsUI() {
   }
   if (lightStatus) {
     const isDark = xenoxState.env.lightPct < xenoxState.thresholds.light;
-    lightStatus.textContent = isDark ? 'DARK' : 'DAYLIGHT';
+    lightStatus.textContent = isDark ? 'DIM ILLUMINATION' : 'NATURAL DAYLIGHT';
     lightStatus.className = `badge ${isDark ? 'badge-warning' : 'badge-optimal'}`;
   }
 
@@ -396,12 +397,11 @@ function renderSensorsUI() {
     const pct = Math.max(0, Math.min(1, xenoxState.env.distanceCm / 300));
     const offset = 377 - (377 * pct);
     distGauge.style.strokeDashoffset = offset;
-    distGauge.classList.toggle('distance-alert', xenoxState.env.distanceCm <= xenoxState.thresholds.distance);
   }
   if (distStatus) {
     const isClose = xenoxState.env.distanceCm <= xenoxState.thresholds.distance;
-    distStatus.textContent = isClose ? 'PROXIMITY ALERT' : 'CLEAR ZONE';
-    distStatus.className = `badge ${isClose ? 'badge-alert' : 'badge-optimal'}`;
+    distStatus.textContent = isClose ? 'TRAFFIC APPROACH' : 'ENTRY CLEAR';
+    distStatus.className = `badge ${isClose ? 'badge-warning' : 'badge-optimal'}`;
   }
 
   // PIR Motion & Hold Bar
@@ -411,13 +411,13 @@ function renderSensorsUI() {
   const isOccupied = xenoxState.env.pirMotion && xenoxState.env.pirHoldRemaining > 0;
 
   if (pirStatus) {
-    pirStatus.textContent = isOccupied ? 'DETECTED' : 'IDLE';
+    pirStatus.textContent = isOccupied ? 'OCCUPIED' : 'VACANT';
     pirStatus.className = `badge ${isOccupied ? 'badge-warning' : 'badge-optimal'}`;
   }
   if (pirHoldText) {
     pirHoldText.textContent = isOccupied
-      ? `Hold Active: ${Math.ceil(xenoxState.env.pirHoldRemaining)}s remaining`
-      : 'No recent motion detected';
+      ? `Occupancy hold: ${Math.ceil(xenoxState.env.pirHoldRemaining)}s remaining`
+      : 'Room is currently vacant';
   }
   if (pirHoldBar) {
     const pct = isOccupied ? (xenoxState.env.pirHoldRemaining / xenoxState.thresholds.pirTimeout) * 100 : 0;
@@ -455,7 +455,7 @@ function renderRelaysUI() {
     fanManualBtn.classList.toggle('active', xenoxState.relays.fan.mode === 'manual');
   }
 
-  // Room Lamp UI
+  // Room Lighting UI
   const lampCard = document.getElementById('card-lamp-relay');
   const lampBtn = document.getElementById('btn-relay-lamp-toggle');
   const lampPower = document.getElementById('val-lamp-power');
@@ -485,24 +485,35 @@ function renderRelaysUI() {
   }
 }
 
-function renderSecurityAndRadar() {
-  const alertBanner = document.getElementById('proximity-alert-banner');
-  const radarDataEl = document.getElementById('radar-overlay-data');
+function renderAccessClearanceUI() {
+  const marker = document.getElementById('clearance-marker');
+  const markerLabel = document.getElementById('marker-label');
+  const valClearance = document.getElementById('val-clearance-cm');
+  const statusText = document.getElementById('access-status-text');
+  const trafficBadge = document.getElementById('access-traffic-badge');
+  const banner = document.getElementById('proximity-alert-banner');
 
-  if (alertBanner) {
-    const isAlert = xenoxState.env.securityAlert;
-    alertBanner.classList.toggle('alert-active', isAlert);
-    alertBanner.innerHTML = isAlert
-      ? `<i data-lucide="alert-triangle" style="width:18px;height:18px;"></i> <strong>PROXIMITY BREACH DETECTED:</strong> Target within ${xenoxState.env.distanceCm} cm (< ${xenoxState.thresholds.distance} cm threshold)!`
-      : `<i data-lucide="shield-check" style="width:18px;height:18px;"></i> Security & Perimeter Clear — Ultrasonic Scanner Armed (${xenoxState.thresholds.distance} cm boundary).`;
+  const dist = xenoxState.env.distanceCm;
+  const pct = Math.max(0, Math.min(100, (dist / 300) * 100));
+
+  if (marker) marker.style.left = `${pct}%`;
+  if (markerLabel) markerLabel.textContent = `${Math.round(dist)} cm`;
+  if (valClearance) valClearance.textContent = `${Math.round(dist)} cm`;
+
+  const isTriggered = dist <= xenoxState.thresholds.distance;
+  if (trafficBadge) {
+    trafficBadge.textContent = isTriggered ? 'ENTRANCE APPROACH' : 'NORMAL FLOW';
+    trafficBadge.className = `badge ${isTriggered ? 'badge-warning' : 'badge-optimal'}`;
   }
 
-  if (radarDataEl) {
-    radarDataEl.innerHTML = `
-      TARGET DIST: ${Math.round(xenoxState.env.distanceCm)} CM<br>
-      STATUS: ${xenoxState.env.distanceCm <= xenoxState.thresholds.distance ? 'INTRUSION ZONE' : 'TRACKING SAFE'}<br>
-      PIR SYNC: ${xenoxState.env.pirMotion ? 'MOTION VERIFIED' : 'NO MOTION'}
-    `;
+  if (banner) {
+    banner.classList.toggle('alert-active', isTriggered);
+  }
+
+  if (statusText) {
+    statusText.textContent = isTriggered
+      ? `Approach registered within ${Math.round(dist)} cm limit (Guest/Staff movement).`
+      : `Doorway & corridor approach clear. Ultrasonic clearance standing by at ${Math.round(dist)} cm.`;
   }
 }
 
@@ -529,11 +540,11 @@ function renderTopologySchematic() {
   const lampText = document.getElementById('topo-text-lamp');
 
   if (dhtText) dhtText.textContent = `${xenoxState.env.temp.toFixed(1)}°C · ${Math.round(xenoxState.env.humidity)}%`;
-  if (pirText) pirText.textContent = xenoxState.env.pirMotion ? 'MOTION DETECTED' : 'IDLE';
+  if (pirText) pirText.textContent = xenoxState.env.pirMotion ? 'OCCUPIED' : 'VACANT';
   if (ldrText) ldrText.textContent = `${Math.round(xenoxState.env.lightPct)}% (${Math.round(xenoxState.env.lightPct * 10)} lx)`;
   if (distText) distText.textContent = `${Math.round(xenoxState.env.distanceCm)} cm`;
-  if (fanText) fanText.textContent = `FAN: ${xenoxState.relays.fan.active ? 'RUNNING (' + xenoxState.relays.fan.watts + 'W)' : 'OFF'}`;
-  if (lampText) lampText.textContent = `LAMP: ${xenoxState.relays.lamp.active ? 'LIT (' + xenoxState.relays.lamp.watts + 'W)' : 'OFF'}`;
+  if (fanText) fanText.textContent = `FAN/FCU: ${xenoxState.relays.fan.active ? 'RUNNING (' + xenoxState.relays.fan.watts + 'W)' : 'OFF'}`;
+  if (lampText) lampText.textContent = `LIGHTING: ${xenoxState.relays.lamp.active ? 'LIT (' + xenoxState.relays.lamp.watts + 'W)' : 'OFF'}`;
 }
 
 function renderEnergyUI() {
@@ -558,7 +569,6 @@ function renderCodeSnippets() {
    SIMULATION ENGINE & SENSOR TELEMETRY LOOP
    ============================================================================ */
 let simLoopTimer = null;
-let radarAngle = 0;
 
 function tickSimulation() {
   if (xenoxState.connection.type === 'simulated') {
@@ -573,20 +583,17 @@ function tickSimulation() {
     xenoxState.env.lightPct = Math.max(0, Math.min(100, Math.round(xenoxState.env.lightPct + lightDrift)));
     xenoxState.env.distanceCm = Math.max(10, Math.min(300, Math.round(xenoxState.env.distanceCm + distDrift)));
 
-    // PIR motion hold countdown
+    // PIR occupancy hold countdown
     if (xenoxState.env.pirMotion && xenoxState.env.pirHoldRemaining > 0) {
       xenoxState.env.pirHoldRemaining = Math.max(0, xenoxState.env.pirHoldRemaining - 1);
       if (xenoxState.env.pirHoldRemaining === 0) {
         xenoxState.env.pirMotion = false;
-        logEvent('PIR Sensor', 'Motion timeout expired', 'PIR → Idle');
+        logEvent('PIR Sensor', 'Occupancy timeout expired', 'Room Marked Vacant');
       }
     }
   }
 
-  // Record point into telemetry history
   pushTelemetryHistory();
-
-  // Render updates
   renderAll();
 }
 
@@ -611,7 +618,7 @@ function pushTelemetryHistory() {
 }
 
 /* ============================================================================
-   CANVAS CHART & RADAR VISUALIZERS
+   CANVAS CHART VISUALIZER
    ============================================================================ */
 function drawTelemetryChart() {
   const canvas = document.getElementById('telemetry-canvas');
@@ -626,7 +633,7 @@ function drawTelemetryChart() {
   const len = h.timestamps.length;
   if (len < 2) return;
 
-  // Draw cyber grid
+  // Grid
   ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
   ctx.lineWidth = 1;
   const stepsY = 4;
@@ -647,7 +654,7 @@ function drawTelemetryChart() {
   // Draw Series: Light (% scaled 0 - 100)
   drawLineSeries(ctx, h.light, 0, 100, '#ffaa00', width, height);
 
-  // Draw Series: Distance (cm scaled 0 - 300)
+  // Draw Series: Clearance (cm scaled 0 - 300)
   drawLineSeries(ctx, h.distance, 0, 300, '#ff3366', width, height);
 }
 
@@ -670,74 +677,8 @@ function drawLineSeries(ctx, data, minVal, maxVal, color, width, height) {
   ctx.shadowBlur = 0;
 }
 
-function drawRadarAnimation() {
-  const canvas = document.getElementById('radar-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const width = canvas.width = canvas.parentElement.clientWidth;
-  const height = canvas.height = canvas.parentElement.clientHeight;
-  const cx = width / 2;
-  const cy = height / 2;
-  const maxR = Math.min(cx, cy) - 10;
-
-  ctx.clearRect(0, 0, width, height);
-
-  // Concentric radar rings
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
-  ctx.lineWidth = 1;
-  for (let r = maxR / 3; r <= maxR; r += maxR / 3) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  // Crosshairs
-  ctx.beginPath();
-  ctx.moveTo(cx - maxR, cy);
-  ctx.lineTo(cx + maxR, cy);
-  ctx.moveTo(cx, cy - maxR);
-  ctx.lineTo(cx, cy + maxR);
-  ctx.stroke();
-
-  // Rotating sweep beam
-  radarAngle += 0.04;
-  if (radarAngle > Math.PI * 2) radarAngle = 0;
-
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-  gradient.addColorStop(0, 'rgba(0, 240, 255, 0.25)');
-  gradient.addColorStop(1, 'rgba(0, 240, 255, 0.02)');
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.arc(cx, cy, maxR, radarAngle - 0.4, radarAngle);
-  ctx.closePath();
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  ctx.restore();
-
-  // Echo blip representing HC-SR04 Target
-  const targetDistNorm = Math.min(1, xenoxState.env.distanceCm / 300);
-  const targetR = targetDistNorm * maxR;
-  const targetAngle = Math.PI * 0.75; // fixed azimuth for detection zone
-  const targetX = cx + Math.cos(targetAngle) * targetR;
-  const targetY = cy + Math.sin(targetAngle) * targetR;
-
-  const isAlert = xenoxState.env.distanceCm <= xenoxState.thresholds.distance;
-  ctx.fillStyle = isAlert ? '#ff3366' : '#00f59b';
-  ctx.shadowColor = isAlert ? 'rgba(255,51,102,0.8)' : 'rgba(0,245,155,0.8)';
-  ctx.shadowBlur = 12;
-
-  ctx.beginPath();
-  ctx.arc(targetX, targetY, isAlert ? 6 : 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  requestAnimationFrame(drawRadarAnimation);
-}
-
 /* ============================================================================
-   USER ACTIONS & PRESETS
+   USER ACTIONS & FACILITY PROFILES
    ============================================================================ */
 function setMasterMode(mode) {
   xenoxState.mode = mode;
@@ -747,7 +688,7 @@ function setMasterMode(mode) {
   document.getElementById('btn-master-auto')?.classList.toggle('active', mode === 'auto');
   document.getElementById('btn-master-manual')?.classList.toggle('active', mode === 'manual');
 
-  logEvent('System Mode', `Operating mode switched to ${mode.toUpperCase()}`, mode === 'auto' ? 'Automated Rules Active' : 'Manual Override Active');
+  logEvent('System Mode', `Operating mode set to ${mode.toUpperCase()}`, mode === 'auto' ? 'Building Automation Logic Active' : 'Facility Manager Manual Override');
   renderAll();
 }
 
@@ -770,59 +711,76 @@ function toggleRelayManual(appliance) {
 function triggerPirMotionPulse() {
   xenoxState.env.pirMotion = true;
   xenoxState.env.pirHoldRemaining = xenoxState.thresholds.pirTimeout;
-  logEvent('PIR Sensor', `Manual Motion pulse triggered (${xenoxState.thresholds.pirTimeout}s window)`, 'PIR → HIGH');
+  logEvent('PIR Sensor', `Occupancy registered (${xenoxState.thresholds.pirTimeout}s window)`, 'Room Occupied');
   renderAll();
 }
 
 function clearPirMotionManual() {
   xenoxState.env.pirMotion = false;
   xenoxState.env.pirHoldRemaining = 0;
-  logEvent('PIR Sensor', 'Motion cleared', 'PIR → LOW');
+  logEvent('PIR Sensor', 'Room occupancy cleared manually', 'Room Vacant');
   renderAll();
 }
 
-function applyPreset(name) {
-  xenoxState.activePreset = name;
-  const presets = {
-    evening: {
-      temp: 29.5,
-      humidity: 54,
-      lightPct: 22,
-      distanceCm: 150,
-      pirMotion: true,
-      pirHold: 30,
-      title: 'Warm Occupied Evening'
-    },
-    sunny: {
-      temp: 26.0,
-      humidity: 42,
-      lightPct: 85,
-      distanceCm: 280,
-      pirMotion: false,
-      pirHold: 0,
-      title: 'Sunny Empty Afternoon'
-    },
-    nightGuard: {
-      temp: 22.0,
-      humidity: 62,
-      lightPct: 5,
-      distanceCm: 42, // Under 50cm threshold -> Triggers alert!
-      pirMotion: true,
-      pirHold: 30,
-      title: 'Night Perimeter Breach'
-    },
-    hotStudy: {
-      temp: 34.0,
+function onFacilityZoneChange(zone) {
+  xenoxState.activeZone = zone;
+  const tag = document.getElementById('zone-tag-display');
+  const zoneNames = {
+    hotel: 'HOTEL SUITE 402 · ACTIVE',
+    hospital: 'HOSPITAL WARD 3B · ACTIVE',
+    office: 'CORP CONF ROOM A · ACTIVE',
+    commercial: 'COMMERCIAL CORRIDOR · ACTIVE'
+  };
+  if (tag) tag.textContent = zoneNames[zone] || 'ZONE ACTIVE';
+  applyFacilityProfile(zone);
+}
+
+function applyFacilityProfile(name) {
+  xenoxState.activeProfile = name;
+  const profiles = {
+    hotel: {
+      temp: 24.5,
       humidity: 48,
-      lightPct: 70,
+      lightPct: 35,
       distanceCm: 180,
       pirMotion: true,
       pirHold: 30,
-      title: 'Hot Daylight Study'
+      setpointTemp: 25.0,
+      title: 'Hotel Guest Comfort'
+    },
+    hospital: {
+      temp: 22.0,
+      humidity: 50,
+      lightPct: 20,
+      distanceCm: 140,
+      pirMotion: true,
+      pirHold: 60,
+      setpointTemp: 23.0,
+      title: 'Hospital Clinical Care'
+    },
+    office: {
+      temp: 21.5,
+      humidity: 44,
+      lightPct: 75,
+      distanceCm: 220,
+      pirMotion: true,
+      pirHold: 45,
+      setpointTemp: 22.5,
+      title: 'Corporate Meeting'
+    },
+    nightEco: {
+      temp: 27.0,
+      humidity: 52,
+      lightPct: 8,
+      distanceCm: 290,
+      pirMotion: false,
+      pirHold: 0,
+      setpointTemp: 29.0,
+      title: 'Off-Peak Energy Saver'
     }
   };
 
-  const p = presets[name];
+  const p = profiles[name];
   if (!p) return;
 
   xenoxState.env.temp = p.temp;
@@ -831,13 +789,21 @@ function applyPreset(name) {
   xenoxState.env.distanceCm = p.distanceCm;
   xenoxState.env.pirMotion = p.pirMotion;
   xenoxState.env.pirHoldRemaining = p.pirHold;
+  xenoxState.thresholds.temp = p.setpointTemp;
 
   // Update UI preset chips
-  ['evening', 'sunny', 'nightGuard', 'hotStudy'].forEach(id => {
+  ['hotel', 'hospital', 'office', 'nightEco'].forEach(id => {
     document.getElementById(`preset-${id}`)?.classList.toggle('active', id === name);
   });
 
-  logEvent('Preset Applied', `Loaded scenario "${p.title}"`, 'Sensors Reconfigured');
+  const dispThreshTemp = document.getElementById('disp-thresh-temp');
+  const sliderThreshTemp = document.getElementById('slider-thresh-temp');
+  const numThreshTemp = document.getElementById('num-thresh-temp');
+  if (dispThreshTemp) dispThreshTemp.textContent = `${p.setpointTemp.toFixed(1)}°C`;
+  if (sliderThreshTemp) sliderThreshTemp.value = p.setpointTemp;
+  if (numThreshTemp) numThreshTemp.value = p.setpointTemp;
+
+  logEvent('Profile Applied', `Loaded "${p.title}" profile`, 'Setpoints Reconfigured');
   renderAll();
 }
 
@@ -857,7 +823,7 @@ function updateThreshold(key, val) {
   if (input) input.value = num;
   if (display) display.textContent = `${num}${key === 'temp' ? '°C' : (key === 'light' ? '%' : (key === 'distance' ? 'cm' : 's'))}`;
 
-  logEvent('Calibration', `Threshold ${key} updated to ${num}`, 'Applied to Logic');
+  logEvent('Setpoint', `Setpoint ${key} updated to ${num}`, 'Applied to Controller');
   renderAll();
 }
 
@@ -869,56 +835,20 @@ function resetThresholds() {
 }
 
 /* ============================================================================
-   PHONE COMPANION SYNCHRONIZATION
-   ============================================================================ */
-function syncPhoneCompanion() {
-  const phoneTemp = document.getElementById('phone-val-temp');
-  const phoneHum = document.getElementById('phone-val-hum');
-  const phoneDist = document.getElementById('phone-val-dist');
-  const phoneMotion = document.getElementById('phone-val-motion');
-  const phoneFanBtn = document.getElementById('phone-btn-fan');
-  const phoneLampBtn = document.getElementById('phone-btn-lamp');
-
-  if (phoneTemp) phoneTemp.textContent = `${xenoxState.env.temp.toFixed(1)}°C`;
-  if (phoneHum) phoneHum.textContent = `${Math.round(xenoxState.env.humidity)}%`;
-  if (phoneDist) phoneDist.textContent = `${Math.round(xenoxState.env.distanceCm)} cm`;
-  if (phoneMotion) {
-    phoneMotion.textContent = xenoxState.env.pirMotion ? 'DETECTED' : 'IDLE';
-    phoneMotion.style.color = xenoxState.env.pirMotion ? 'var(--cyan)' : 'var(--text-muted)';
-  }
-
-  if (phoneFanBtn) {
-    phoneFanBtn.textContent = `FAN: ${xenoxState.relays.fan.active ? 'ON' : 'OFF'}`;
-    phoneFanBtn.className = `btn btn-sm ${xenoxState.relays.fan.active ? 'btn-cyan' : 'btn-subtle'}`;
-  }
-  if (phoneLampBtn) {
-    phoneLampBtn.textContent = `LAMP: ${xenoxState.relays.lamp.active ? 'ON' : 'OFF'}`;
-    phoneLampBtn.className = `btn btn-sm ${xenoxState.relays.lamp.active ? 'btn-cyan' : 'btn-subtle'}`;
-  }
-}
-
-function togglePhoneModal(open) {
-  const modal = document.getElementById('phone-preview-modal');
-  if (modal) {
-    modal.classList.toggle('open', open);
-  }
-}
-
-/* ============================================================================
-   CODE EXPORT GENERATORS (ARDUINO INO & PYTHON GATEWAY)
+   CODE EXPORT GENERATORS (ARDUINO INO)
    ============================================================================ */
 function getArduinoSketchCode() {
   return `/*
  * XENOX SMART AUTOMATION SYSTEM — FIRMWARE SKETCH
  * Target: Arduino UNO (ATmega328P)
  * Pins:
- *   D2: DHT11 Sensor
- *   D3: PIR Motion Sensor
- *   A0: LDR Light Sensor
- *   D6: HC-SR04 Trigger Pin
+ *   D2: DHT11 Sensor (Temperature & Humidity)
+ *   D3: PIR Motion Sensor (Occupancy)
+ *   A0: LDR Light Sensor (Daylight)
+ *   D6: HC-SR04 Trigger Pin (Clearance)
  *   D7: HC-SR04 Echo Pin
- *   D8: Relay Channel 1 (AC Fan)
- *   D9: Relay Channel 2 (Room Lamp)
+ *   D8: Relay Channel 1 (Fan / FCU)
+ *   D9: Relay Channel 2 (Zone Lighting)
  *   D13: Status LED / Heartbeat
  */
 
@@ -936,10 +866,10 @@ function getArduinoSketchCode() {
 
 DHT dht(DHTPIN, DHTTYPE);
 
-// Configured Thresholds from XENOX Web Console
+// Configured Setpoints from XENOX Facility Console
 const float TEMP_THRESHOLD_C = ${xenoxState.thresholds.temp.toFixed(1)};
 const int   LDR_THRESHOLD    = ${Math.round((xenoxState.thresholds.light / 100) * 1023)}; // ${xenoxState.thresholds.light}%
-const long  PROXIMITY_LIMIT  = ${xenoxState.thresholds.distance}; // cm
+const long  DOORWAY_LIMIT    = ${xenoxState.thresholds.distance}; // cm
 const unsigned long PIR_HOLD_MS = ${xenoxState.thresholds.pirTimeout * 1000}UL;
 
 unsigned long lastMotionTime = 0;
@@ -963,7 +893,7 @@ void setup() {
   digitalWrite(RELAY_LAMP, HIGH);
   digitalWrite(STATUS_LED, HIGH);
 
-  Serial.println("{\\"system\\":\\"XENOX Online\\",\\"baud\\":115200}");
+  Serial.println("{\\"system\\":\\"XENOX BMS\\",\\"baud\\":115200}");
 }
 
 long readDistanceCm() {
@@ -990,7 +920,7 @@ void loop() {
   }
   bool occupied = (millis() - lastMotionTime) < PIR_HOLD_MS;
 
-  // Process any Incoming Serial Command from Python Gateway
+  // Process Incoming Serial Command from Building Server
   if (Serial.available() > 0) {
     String cmd = Serial.readStringUntil('\\n');
     cmd.trim();
@@ -1001,7 +931,7 @@ void loop() {
     else if (cmd == "AUTO") { manualOverride = false; }
   }
 
-  // Automation Logic
+  // Automation Logic: Cooling & Lighting
   bool fanState = manualOverride ? fanManualState : (temp >= TEMP_THRESHOLD_C);
   bool lampState = manualOverride ? lampManualState : (occupied && lightPct < ${xenoxState.thresholds.light});
 
@@ -1026,31 +956,19 @@ function copyCodeToClipboard(elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
   navigator.clipboard.writeText(el.textContent).then(() => {
-    alert('Code copied to clipboard successfully!');
+    alert('Firmware code copied to clipboard successfully!');
   });
-}
-
-function downloadFile(content, filename) {
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 }
 
 /* ============================================================================
    APP INITIALIZATION
    ============================================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Lucide icons if available
   if (window.lucide && window.lucide.createIcons) {
     window.lucide.createIcons();
   }
 
-  // Initial seed of history points
+  // Seed history points
   for (let i = 20; i >= 0; i--) {
     const t = new Date(Date.now() - i * 1500).toLocaleTimeString([], { hour12: false });
     xenoxState.history.timestamps.push(t);
@@ -1060,13 +978,8 @@ document.addEventListener('DOMContentLoaded', () => {
     xenoxState.history.distance.push(xenoxState.env.distanceCm + (Math.random() - 0.5) * 5);
   }
 
-  // Initial log entry
-  logEvent('XENOX Core', 'System Boot Completed — Ready', 'All Sensors & Relays Online');
+  logEvent('XENOX BMS', 'Building Management Controller Boot Complete', 'Sensors & Relays Online');
 
-  // Start simulation loop & radar
   simLoopTimer = setInterval(tickSimulation, 1200);
-  requestAnimationFrame(drawRadarAnimation);
-
-  // Initial render
   renderAll();
 });

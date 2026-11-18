@@ -1,8 +1,10 @@
-# XENOX — Smart Automation System
+# XENOX — Facility Automation & Building Management System
 
 ![XENOX Logo](assets/xenox-logo.png)
 
-A comprehensive, offline-ready **Smart Home Automation & Telemetry Console** built on an **Arduino UNO** microcontroller with sensor-driven decision logic, dual-channel AC relay switching, real-time ultrasonic proximity radar, and web/mobile integration.
+A comprehensive, commercial-grade **Facility Automation & Telemetry Console** built on an **Arduino UNO** microcontroller with sensor-driven climate and lighting logic, dual-channel AC relay switching, doorway proximity clearance tracking, and dedicated mobile smartphone integration.
+
+Tailored for **Hospital, Hotel, and Commercial Building Managers**.
 
 ---
 
@@ -11,39 +13,54 @@ A comprehensive, offline-ready **Smart Home Automation & Telemetry Console** bui
 ![System Architecture](assets/architecture.png)
 
 ### 1. Hardware Layer
-- **Arduino UNO (ATmega328P)**: Central microcontroller executing autonomous switching algorithms.
-- **DHT11 Sensor (Digital Pin D2)**: Temperature and relative humidity monitoring.
-- **PIR Motion Sensor (Digital Pin D3)**: Infrared human presence and room occupancy detection.
-- **LDR Light Sensor (Analog Pin A0)**: Ambient light & lux level detection.
-- **HC-SR04 Sensor (Trig D6 / Echo D7)**: Ultrasonic distance measurement & proximity perimeter tracking.
+- **Arduino UNO (ATmega328P)**: Central microcontroller executing autonomous room switching algorithms.
+- **DHT11 Sensor (Digital Pin D2)**: Indoor air temperature & relative humidity monitoring (ASHRAE / NABH comfort compliance).
+- **PIR Occupancy Sensor (Digital Pin D3)**: Infrared human presence and room occupancy detection (Guest / Patient / Staff tracking).
+- **LDR Light Sensor (Analog Pin A0)**: Ambient daylight harvesting level detection (Energy-efficient illumination gating).
+- **HC-SR04 Sensor (Trig D6 / Echo D7)**: Ultrasonic doorway clearance & entrance traffic proximity monitor.
 - **2-Channel Relay Module**:
-  - **Relay Channel 1 (Pin D8)**: AC Ceiling Fan control.
-  - **Relay Channel 2 (Pin D9)**: Smart Room Lamp control.
+  - **Relay Channel 1 (Pin D8)**: AC Ventilation / Fan Coil Unit (FCU) / Ceiling Fan.
+  - **Relay Channel 2 (Pin D9)**: Zone Room Lighting.
 - **Status LED (Pin D13)**: Microcontroller heartbeat and serial state indicator.
 
 ### 2. Network & Gateway Layer
-- **Laptop / Gateway (`server.py`)**: Python HTTP and Serial bridge communicating with Arduino UNO at **115200 baud** over USB.
-- Serves REST endpoints (`/api/status`, `/api/relay`, `/api/mode`) and delivers the web interface locally or across the local Wi-Fi network.
+- **Building Gateway (`server.py`)**: Python HTTP and Serial bridge communicating with Arduino UNO at **115200 baud** over USB.
+- Serves REST endpoints (`/api/status`, `/api/relay`, `/api/mode`) and delivers both the Web Console and Mobile App over the local Wi-Fi network.
 
 ### 3. User Interface Layer
-- **XENOX Web Console**: Ultra-sleek cyberpunk dark glassmorphism dashboard with circular gauges, live radar sweep, animated fan/lamp visualizers, threshold sliders, event log, and energy analytics.
-- **Mobile Companion Preview**: Built-in phone simulator pre-configured for the upcoming native mobile phone app!
+- **Desktop Web Management Console**: Facility dashboard with room zone selector (Hotel Suite, Hospital Ward, Corporate Office, Corridor), circular gauges, doorway clearance bar, multi-sensor timeline, setpoint calibration, ESG energy model, and event audit log.
+- **Dedicated Smartphone App**: Native-styled mobile app built specifically for mobile screens, matching the mobile interface in the architecture diagram.
 
 ---
 
-## ⚡ Quick Start (Running the Web Interface)
+## 📱 Mobile Smartphone Application
 
-### Option A: Open directly in any Web Browser (No installation needed)
-Double-click `index.html` or open it with Google Chrome, Microsoft Edge, or Firefox.  
-The interface comes with a full **Virtual Hardware Simulator** running out of the box with realistic telemetry, scenario presets, and interactive controls!
+The mobile phone application is available in two ready-to-run formats:
 
-### Option B: Run with the Python Gateway (For real Arduino or local network)
+1. **Instant Web Mobile App (PWA)**:
+   - Located at: [`mobile/index.html`](mobile/index.html)
+   - Open on any phone or browser. Tap **"Add to Home Screen"** on iOS or Android for a full native app experience.
+   - Accessible over local Wi-Fi at: `http://<YOUR_COMPUTER_IP>:8000/mobile/index.html`
+
+2. **Native React Native / Expo Mobile Project**:
+   - Located in the [`mobile-app/`](mobile-app/) directory.
+   - Run with `npx expo start` to test on your iPhone or Android with Expo Go, or build a native `.apk`.
+
+---
+
+## ⚡ Quick Start (Running the System)
+
+### Option A: Open Directly in Web Browser
+- **Desktop Facility Console**: Open [`index.html`](index.html).
+- **Phone App**: Open [`mobile/index.html`](mobile/index.html).
+
+### Option B: Run with the Python Gateway (For real Arduino & Wi-Fi mobile access)
 ```bash
 cd "C:\Users\mnvpa\.gemini\antigravity\scratch\xenox-smart-automation"
 python server.py
 ```
-Open **`http://localhost:8000`** in your browser.  
-Devices on the same Wi-Fi network can also access it using your computer's local IP address (e.g. `http://192.168.1.10:8000`).
+- Open **`http://localhost:8000`** for the Desktop Console.
+- Open **`http://localhost:8000/mobile/index.html`** on mobile phones connected to your local Wi-Fi network.
 
 ---
 
@@ -51,36 +68,31 @@ Devices on the same Wi-Fi network can also access it using your computer's local
 
 | Module / Sensor | Arduino UNO Pin | Function | Logic |
 | :--- | :--- | :--- | :--- |
-| **DHT11 Data** | **Digital D2** | Temperature & Humidity input | OneWire Protocol |
-| **PIR Out** | **Digital D3** | Human Motion detection | HIGH = Motion, LOW = Idle |
-| **LDR Analog Out** | **Analog A0** | Ambient Light Level | 0 to 1023 ADC (0–100%) |
+| **DHT11 Data** | **Digital D2** | Room Temperature & Humidity | OneWire Protocol |
+| **PIR Out** | **Digital D3** | Room Occupancy Detection | HIGH = Occupied, LOW = Vacant |
+| **LDR Analog Out** | **Analog A0** | Ambient Natural Light | 0 to 1023 ADC (0–100%) |
 | **HC-SR04 Trig** | **Digital D6** | Ultrasonic Trigger pulse | 10µs HIGH pulse |
 | **HC-SR04 Echo** | **Digital D7** | Ultrasonic Echo return | Pulse duration timing |
-| **Relay CH1 (IN1)** | **Digital D8** | AC Ceiling Fan Actuator | Active LOW (LOW = ON) |
-| **Relay CH2 (IN2)** | **Digital D9** | Smart Room Lamp Actuator | Active LOW (LOW = ON) |
+| **Relay CH1 (IN1)** | **Digital D8** | Ventilation / Fan Actuator | Active LOW (LOW = ON) |
+| **Relay CH2 (IN2)** | **Digital D9** | Zone Room Lighting Actuator | Active LOW (LOW = ON) |
 | **Status LED** | **Digital D13** | System Heartbeat indicator | Toggle every 500ms |
 
 ---
 
-## 🧠 Automation Decision Rules
+## 🧠 Facility Decision & Automation Rules
 
-1. **AC Fan Automation**:
-   - **Condition**: If `Temperature >= Temperature Threshold` (Default: **28.0°C**), Relay CH1 is energized (Fan turns **ON**).
-   - If temperature cools down below the threshold, Relay CH1 is de-energized (Fan turns **OFF**).
+1. **Ventilation / Cooling Automation**:
+   - **Condition**: If `Room Temperature >= Cooling Setpoint` (Default: **28.0°C** or per-profile), Relay CH1 energizes (Fan/FCU turns **ON**).
+   - Once cooled below the setpoint, Relay CH1 de-energizes (Fan turns **OFF**).
 
-2. **Smart Lamp Automation**:
-   - **Condition**: Relay CH2 turns **ON** only when **BOTH**:
-     1. `PIR Occupancy == DETECTED` (or within hold timeout window, default **30s**), **AND**
-     2. `Ambient Light < Darkness Threshold` (Default: **40%**).
-   - Prevents wasting electricity during daylight or in empty rooms.
+2. **Lighting Automation**:
+   - **Condition**: Relay CH2 turns **ON** only when:
+     1. `Room Occupancy == OCCUPIED` (or within hold window, default **30s**), **AND**
+     2. `Natural Daylight < Darkness Limit` (Default: **40%**).
+   - Prevents electrical waste during daylight hours or when rooms/wards are vacant.
 
-3. **Perimeter / Proximity Warning**:
-   - If `Target Distance <= Proximity Limit` (Default: **50 cm**) and motion is verified, a visual and audible security alarm is triggered on the dashboard.
+3. **Doorway Clearance & Entryway Traffic**:
+   - Monitored via the HC-SR04 ultrasonic sensor with a linear clearance meter and traffic log ($< 50\text{ cm}$ traffic approach).
 
-4. **Manual Override**:
-   - Switching to **Manual Mode** allows instantaneous control of the Fan and Lamp via the interactive tactile switches.
-
----
-
-## 📱 Next Step: Mobile Phone App
-The web interface includes an interactive **Phone Companion Preview** modal demonstrating the mobile layout. Next, we will create the dedicated mobile application (Flutter / React Native / PWA) for your phone!
+4. **Facility Manager Override**:
+   - Switching to **Manual Mode** from either the Desktop Console or Mobile App allows direct override control of ventilation and lighting feeds.
