@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XENOX — Smart Automation System</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navigation / Main Header -->
+  <header class="main-header">
+    <div class="brand-section">
+      <img src="assets/xenox-logo.png" alt="XENOX Smart Automation System Logo" class="brand-logo-img">
+      <div class="brand-meta">
+        <div class="brand-title">
+          <span>XENOX</span>
+          <span class="brand-badge">PRO v2.4</span>
+        </div>
+        <span class="brand-sub">Smart Automation System</span>
+      </div>
+    </div>
+
+    <nav>
+      <ul class="nav-links">
+        <li><a href="#dashboard" class="nav-link active"><i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> Sensors</a></li>
+        <li><a href="#actuators" class="nav-link"><i data-lucide="power" style="width:16px;height:16px;"></i> Relays</a></li>
+        <li><a href="#security" class="nav-link"><i data-lucide="shield" style="width:16px;height:16px;"></i> Radar</a></li>
+        <li><a href="#calibration" class="nav-link"><i data-lucide="sliders" style="width:16px;height:16px;"></i> Calibration</a></li>
+        <li><a href="#schematic" class="nav-link"><i data-lucide="cpu" style="width:16px;height:16px;"></i> Hardware</a></li>
+        <li><a href="#developer" class="nav-link"><i data-lucide="code" style="width:16px;height:16px;"></i> Firmware</a></li>
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <div class="status-pill">
+        <span class="status-beacon"></span>
+        <span id="header-conn-status">ARDUINO READY</span>
+      </div>
+
+      <button type="button" class="btn btn-outline" onclick="togglePhoneModal(true)">
+        <i data-lucide="smartphone" style="width:16px;height:16px;"></i>
+        <span>Phone View</span>
+      </button>
+
+      <button type="button" class="btn btn-subtle btn-icon-only" id="btn-sound-toggle" onclick="xenoxState.soundEnabled = !xenoxState.soundEnabled; this.classList.toggle('btn-outline', xenoxState.soundEnabled);" title="Toggle Audio Feedback">
+        <i data-lucide="volume-2" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- Hero Ribbon: Mode Switcher & Presets -->
+    <section class="hero-ribbon">
+      <div class="preset-group">
+        <span class="preset-label"><i data-lucide="sparkles" style="width:16px;height:16px;color:var(--cyan);"></i> Room Scenarios:</span>
+        <button type="button" class="preset-chip active" id="preset-evening" onclick="applyPreset('evening')">🛋️ Cozy Evening</button>
+        <button type="button" class="preset-chip" id="preset-sunny" onclick="applyPreset('sunny')">☀️ Sunny Empty</button>
+        <button type="button" class="preset-chip" id="preset-nightGuard" onclick="applyPreset('nightGuard')">🚨 Night Perimeter Breach</button>
+        <button type="button" class="preset-chip" id="preset-hotStudy" onclick="applyPreset('hotStudy')">🔥 Hot Daylight Study</button>
+      </div>
+
+      <div class="master-mode-switch">
+        <button type="button" class="mode-btn active auto-mode" id="btn-master-auto" onclick="setMasterMode('auto')">
+          <i data-lucide="cpu" style="width:16px;height:16px;"></i>
+          <span>Auto System</span>
+        </button>
+        <button type="button" class="mode-btn manual-mode" id="btn-master-manual" onclick="setMasterMode('manual')">
+          <i data-lucide="toggle-left" style="width:16px;height:16px;"></i>
+          <span>Manual Override</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Section 1: Environmental Sensor Suite (DHT11, LDR, HC-SR04, PIR) -->
+    <section id="dashboard">
+      <div class="section-title-wrap">
+        <div>
+          <h2 class="section-title">Environmental Telemetry &amp; Detection Suite</h2>
+          <p class="section-desc">Real-time incoming telemetry from Arduino UNO hardware sensors</p>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--cyan);">
+          <i data-lucide="radio" style="width:14px;height:14px;vertical-align:middle;"></i> LIVE 1000ms SAMPLING
+        </div>
+      </div>
+
+      <div class="sensor-card-grid">
+        <!-- Sensor 1: DHT11 Temperature -->
+        <article class="sensor-card">
+          <div class="card-top">
+            <div class="sensor-header-info">
+              <div class="sensor-icon-box"><i data-lucide="thermometer"></i></div>
+              <div>
+                <div class="sensor-name">DHT11 Temp</div>
+                <div class="sensor-pin">Digital Pin D2</div>
+              </div>
+            </div>
+            <span class="badge badge-warning" id="badge-temp-status">WARM / FAN ON</span>
+          </div>
+
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 140 140">
+              <circle class="gauge-bg" cx="70" cy="70" r="60"></circle>
+              <circle class="gauge-fill temp-hot" id="gauge-temp-fill" cx="70" cy="70" r="60"></circle>
+            </svg>
+            <div class="gauge-value-box">
+              <span class="gauge-num" id="val-temp-num">29.5</span>
+              <span class="gauge-unit">°C / 85.1°F</span>
+            </div>
+          </div>
+
+          <div class="card-bottom-info">
+            <span>Fan Limit: <strong style="color:var(--cyan);" id="disp-thresh-temp-card">28.0°C</strong></span>
+            <span>Range: 0–50°C</span>
+          </div>
+        </article>
+
+        <!-- Sensor 2: DHT11 Relative Humidity -->
+        <article class="sensor-card">
+          <div class="card-top">
+            <div class="sensor-header-info">
+              <div class="sensor-icon-box"><i data-lucide="droplets"></i></div>
+              <div>
+                <div class="sensor-name">DHT11 Humidity</div>
+                <div class="sensor-pin">Digital Pin D2</div>
+              </div>
+            </div>
+            <span class="badge badge-optimal" id="badge-hum-status">NORMAL</span>
+          </div>
+
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 140 140">
+              <circle class="gauge-bg" cx="70" cy="70" r="60"></circle>
+              <circle class="gauge-fill" id="gauge-hum-fill" cx="70" cy="70" r="60" style="stroke:var(--green);"></circle>
+            </svg>
+            <div class="gauge-value-box">
+              <span class="gauge-num" id="val-hum-num">54</span>
+              <span class="gauge-unit">% RH</span>
+            </div>
+          </div>
+
+          <div class="card-bottom-info">
+            <span>Dew Point: 19.2°C</span>
+            <span>Comfort: Optimal</span>
+          </div>
+        </article>
+
+        <!-- Sensor 3: LDR Ambient Light -->
+        <article class="sensor-card">
+          <div class="card-top">
+            <div class="sensor-header-info">
+              <div class="sensor-icon-box"><i data-lucide="sun"></i></div>
+              <div>
+                <div class="sensor-name">LDR Light Sensor</div>
+                <div class="sensor-pin">Analog Pin A0</div>
+              </div>
+            </div>
+            <span class="badge badge-warning" id="badge-light-status">DARK</span>
+          </div>
+
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 140 140">
+              <circle class="gauge-bg" cx="70" cy="70" r="60"></circle>
+              <circle class="gauge-fill" id="gauge-light-fill" cx="70" cy="70" r="60" style="stroke:var(--amber);"></circle>
+            </svg>
+            <div class="gauge-value-box">
+              <span class="gauge-num" id="val-light-num">22</span>
+              <span class="gauge-unit">% AMBIENT</span>
+            </div>
+          </div>
+
+          <div class="card-bottom-info">
+            <span id="val-light-lux">220 lux</span>
+            <span>Lamp Limit: <strong style="color:var(--amber);">40%</strong></span>
+          </div>
+        </article>
+
+        <!-- Sensor 4: HC-SR04 Ultrasonic Distance -->
+        <article class="sensor-card">
+          <div class="card-top">
+            <div class="sensor-header-info">
+              <div class="sensor-icon-box"><i data-lucide="radar"></i></div>
+              <div>
+                <div class="sensor-name">HC-SR04 Proximity</div>
+                <div class="sensor-pin">Trig D6 · Echo D7</div>
+              </div>
+            </div>
+            <span class="badge badge-optimal" id="badge-dist-status">CLEAR ZONE</span>
+          </div>
+
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 140 140">
+              <circle class="gauge-bg" cx="70" cy="70" r="60"></circle>
+              <circle class="gauge-fill" id="gauge-dist-fill" cx="70" cy="70" r="60"></circle>
+            </svg>
+            <div class="gauge-value-box">
+              <span class="gauge-num" id="val-dist-num">150</span>
+              <span class="gauge-unit">CM DISTANCE</span>
+            </div>
+          </div>
+
+          <div class="card-bottom-info">
+            <span>Alert Zone: &le; 50 cm</span>
+            <span>Speed: 340 m/s</span>
+          </div>
+        </article>
+      </div>
+
+      <!-- PIR Motion Card Strip -->
+      <div style="margin-top:20px; background:var(--bg-card); border:1px solid var(--border-cyan); border-radius:var(--radius-md); padding:16px 20px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div class="sensor-icon-box" style="width:42px;height:42px;font-size:1.3rem;">
+            <i data-lucide="activity"></i>
+          </div>
+          <div>
+            <div style="font-family:var(--font-brand); font-size:1.1rem; font-weight:700; color:#fff;">PIR OCCUPANCY SENSOR (DIGITAL PIN D3)</div>
+            <div id="val-pir-hold-time" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">Hold Active: 30s remaining</div>
+          </div>
+        </div>
+
+        <div style="flex:1; max-width:320px; min-width:200px;">
+          <div class="hold-progress-track">
+            <div class="hold-progress-bar" id="pir-hold-bar"></div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="badge badge-warning" id="badge-pir-status">DETECTED</span>
+          <button type="button" class="btn btn-outline" style="padding:6px 12px; font-size:0.8rem;" onclick="triggerPirMotionPulse()">
+            <i data-lucide="user-check" style="width:14px;height:14px;"></i> Trigger Motion
+          </button>
+          <button type="button" class="btn btn-subtle" style="padding:6px 12px; font-size:0.8rem;" onclick="clearPirMotionManual()">
+            Clear
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Actuators & 2-Channel Relay Modules -->
+    <section id="actuators">
+      <div class="section-title-wrap">
+        <div>
+          <h2 class="section-title">2-Channel Relay Module Actuators</h2>
+          <p class="section-desc">Automated sensor control or direct manual override of AC Fan and Room Lamp</p>
+        </div>
+      </div>
+
+      <div class="actuator-grid">
+        <!-- Relay 1: AC Ceiling Fan -->
+        <div class="actuator-card active-fan fan-spinning" id="card-fan-relay">
+          <div class="actuator-head">
+            <div class="actuator-title-block">
+              <div class="actuator-icon-wrap"><i data-lucide="fan"></i></div>
+              <div>
+                <div class="actuator-name">AC Induction Fan</div>
+                <div class="actuator-sub">Relay Channel 1 · Arduino Pin D8</div>
+              </div>
+            </div>
+
+            <div class="mode-pill-toggle">
+              <button type="button" class="mode-mini-btn active" id="btn-fan-mode-auto" onclick="setApplianceMode('fan', 'auto')">Auto</button>
+              <button type="button" class="mode-mini-btn" id="btn-fan-mode-manual" onclick="setApplianceMode('fan', 'manual')">Manual</button>
+            </div>
+          </div>
+
+          <!-- Animated Fan Visualization Stage -->
+          <div class="visual-stage">
+            <div class="fan-air-wind"></div>
+            <div class="fan-housing">
+              <svg class="fan-blades-svg" viewBox="0 0 100 100">
+                <g fill="var(--cyan)">
+                  <path d="M50 50 Q40 20 50 10 Q60 20 50 50 Z" />
+                  <path d="M50 50 Q20 60 10 50 Q20 40 50 50 Z" />
+                  <path d="M50 50 Q60 80 50 90 Q40 80 50 50 Z" />
+                  <path d="M50 50 Q80 40 90 50 Q80 60 50 50 Z" />
+                </g>
+              </svg>
+              <div class="fan-hub"></div>
+            </div>
+          </div>
+
+          <div class="actuator-metrics">
+            <div class="metric-item">
+              <span class="metric-label">Power Draw</span>
+              <span class="metric-val" id="val-fan-power" style="color:var(--cyan);">75 W</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Rotational Speed</span>
+              <span class="metric-val" id="val-fan-rpm">1420 RPM</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Voltage / Grid</span>
+              <span class="metric-val">220V AC</span>
+            </div>
+          </div>
+
+          <div class="actuator-controls-row">
+            <button type="button" class="relay-tactile-btn is-active-fan" id="btn-relay-fan-toggle" onclick="toggleRelayManual('fan')">
+              <i data-lucide="power" style="width:20px;height:20px;"></i>
+              <span>RELAY CH1: ENERGIZED (ON)</span>
+            </button>
+          </div>
+
+          <div class="relay-reason-box" id="val-fan-reason">
+            Auto: Room temp (29.5°C) ≥ 28.0°C threshold.
+          </div>
+        </div>
+
+        <!-- Relay 2: Smart Room Lamp -->
+        <div class="actuator-card" id="card-lamp-relay">
+          <div class="actuator-head">
+            <div class="actuator-title-block">
+              <div class="actuator-icon-wrap"><i data-lucide="lightbulb"></i></div>
+              <div>
+                <div class="actuator-name">Smart Room Lamp</div>
+                <div class="actuator-sub">Relay Channel 2 · Arduino Pin D9</div>
+              </div>
+            </div>
+
+            <div class="mode-pill-toggle">
+              <button type="button" class="mode-mini-btn active" id="btn-lamp-mode-auto" onclick="setApplianceMode('lamp', 'auto')">Auto</button>
+              <button type="button" class="mode-mini-btn" id="btn-lamp-mode-manual" onclick="setApplianceMode('lamp', 'manual')">Manual</button>
+            </div>
+          </div>
+
+          <!-- Animated Glowing Lamp Bulb Stage -->
+          <div class="visual-stage">
+            <div class="lamp-aura"></div>
+            <div class="lamp-housing">
+              <svg class="lamp-bulb-svg" viewBox="0 0 100 100">
+                <!-- Base screw -->
+                <rect x="42" y="74" width="16" height="12" rx="2" fill="#3a4b60" />
+                <rect x="44" y="86" width="12" height="4" rx="2" fill="#1b2838" />
+                <!-- Glass bulb -->
+                <path d="M50 15 C33 15 26 28 26 44 C26 55 35 63 38 74 L62 74 C65 63 74 55 74 44 C74 28 67 15 50 15 Z" fill="rgba(255, 190, 40, 0.25)" stroke="#ffaa00" stroke-width="2.5" />
+                <!-- Filament -->
+                <path d="M43 70 L43 50 L48 44 L52 50 L57 44 L57 70" fill="none" stroke="#ffe066" stroke-width="2" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="actuator-metrics">
+            <div class="metric-item">
+              <span class="metric-label">Power Draw</span>
+              <span class="metric-val" id="val-lamp-power" style="color:var(--amber);">0 W</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Luminous Flux</span>
+              <span class="metric-val" id="val-lamp-lumens">0 LM</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Voltage / Grid</span>
+              <span class="metric-val">220V AC</span>
+            </div>
+          </div>
+
+          <div class="actuator-controls-row">
+            <button type="button" class="relay-tactile-btn" id="btn-relay-lamp-toggle" onclick="toggleRelayManual('lamp')">
+              <i data-lucide="power" style="width:20px;height:20px;"></i>
+              <span>RELAY CH2: OFF</span>
+            </button>
+          </div>
+
+          <div class="relay-reason-box" id="val-lamp-reason" style="border-left-color:var(--amber);">
+            Auto: Motion active & dark (22% &lt; 40% threshold).
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Radar Scanner & Ultrasonic Security Station -->
+    <section id="security">
+      <div class="section-title-wrap">
+        <div>
+          <h2 class="section-title">Security &amp; Proximity Radar Station</h2>
+          <p class="section-desc">Ultrasonic HC-SR04 perimeter scanning synchronized with PIR infrared motion</p>
+        </div>
+      </div>
+
+      <div class="radar-section-grid">
+        <!-- Visual Radar Sweep Canvas -->
+        <div class="radar-panel">
+          <div class="radar-visual-container">
+            <canvas id="radar-canvas" class="radar-sweep-canvas"></canvas>
+            <div class="radar-overlay-data" id="radar-overlay-data">
+              TARGET DIST: 150 CM<br>
+              STATUS: TRACKING SAFE<br>
+              PIR SYNC: MOTION VERIFIED
+            </div>
+          </div>
+
+          <div class="proximity-warning-banner" id="proximity-alert-banner">
+            <i data-lucide="shield-check" style="width:18px;height:18px;"></i>
+            <span>Security &amp; Perimeter Clear — Ultrasonic Scanner Armed (50 cm boundary).</span>
+          </div>
+        </div>
+
+        <!-- Real-Time Telemetry Multi-Sensor Timeline -->
+        <div class="radar-panel">
+          <div class="chart-header">
+            <div style="font-family:var(--font-brand); font-size:1.05rem; font-weight:700; color:#fff;">LIVE SENSOR MULTI-TRACK TIMELINE</div>
+            <div class="chart-legend-row">
+              <div class="legend-item"><span class="legend-dot" style="background:#00f0ff;"></span> Temp (°C)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:#00f59b;"></span> Humidity (%)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:#ffaa00;"></span> Light (%)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:#ff3366;"></span> Distance (cm)</div>
+            </div>
+          </div>
+
+          <div class="chart-canvas-box">
+            <canvas id="telemetry-canvas" style="width:100%;height:100%;"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Threshold Calibration Deck -->
+    <section id="calibration">
+      <div class="section-title-wrap">
+        <div>
+          <h2 class="section-title">Threshold Calibration Deck</h2>
+          <p class="section-desc">Tune automation switching parameters in real-time</p>
+        </div>
+        <button type="button" class="btn btn-subtle" onclick="resetThresholds()">
+          <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Reset Defaults
+        </button>
+      </div>
+
+      <div class="thresholds-grid">
+        <!-- Temp Threshold -->
+        <div class="threshold-card">
+          <div class="threshold-head">
+            <span class="threshold-title">Fan Temp Trigger</span>
+            <span class="threshold-val-display" id="disp-thresh-temp">28.0°C</span>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted);">Turns Fan ON when room temperature is equal or higher</p>
+          <div class="slider-container">
+            <input type="range" id="slider-thresh-temp" min="18" max="38" step="0.5" value="28" oninput="updateThreshold('temp', this.value)">
+            <input type="number" class="num-input" id="num-thresh-temp" min="18" max="38" step="0.5" value="28" oninput="updateThreshold('temp', this.value)">
+          </div>
+        </div>
+
+        <!-- Light Threshold -->
+        <div class="threshold-card">
+          <div class="threshold-head">
+            <span class="threshold-title">Lamp Darkness Trigger</span>
+            <span class="threshold-val-display" id="disp-thresh-light" style="color:var(--amber);">40%</span>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted);">Considers room dark when ambient light falls below limit</p>
+          <div class="slider-container">
+            <input type="range" id="slider-thresh-light" min="5" max="80" step="1" value="40" oninput="updateThreshold('light', this.value)">
+            <input type="number" class="num-input" id="num-thresh-light" min="5" max="80" step="1" value="40" oninput="updateThreshold('light', this.value)">
+          </div>
+        </div>
+
+        <!-- Distance Alert Threshold -->
+        <div class="threshold-card">
+          <div class="threshold-head">
+            <span class="threshold-title">Proximity Alert Limit</span>
+            <span class="threshold-val-display" id="disp-thresh-distance" style="color:var(--red);">50cm</span>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted);">Triggers security proximity alert if obstacle is closer than this</p>
+          <div class="slider-container">
+            <input type="range" id="slider-thresh-distance" min="15" max="150" step="5" value="50" oninput="updateThreshold('distance', this.value)">
+            <input type="number" class="num-input" id="num-thresh-distance" min="15" max="150" step="5" value="50" oninput="updateThreshold('distance', this.value)">
+          </div>
+        </div>
+
+        <!-- PIR Hold Timeout -->
+        <div class="threshold-card">
+          <div class="threshold-head">
+            <span class="threshold-title">PIR Motion Hold</span>
+            <span class="threshold-val-display" id="disp-thresh-pirTimeout" style="color:var(--green);">30s</span>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted);">Time to keep lamp energized after human motion ceases</p>
+          <div class="slider-container">
+            <input type="range" id="slider-thresh-pirTimeout" min="5" max="120" step="5" value="30" oninput="updateThreshold('pirTimeout', this.value)">
+            <input type="number" class="num-input" id="num-thresh-pirTimeout" min="5" max="120" step="5" value="30" oninput="updateThreshold('pirTimeout', this.value)">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Hardware Schematic & System Topology -->
+    <section id="schematic">
+      <div class="section-title-wrap">
+        <div>
+          <h2 class="section-title">Hardware Architecture &amp; Signal Topology</h2>
+          <p class="section-desc">Interactive circuit map illustrating live signal lines from Arduino UNO to sensors, relays, and web gateway</p>
+        </div>
+      </div>
+
+      <div class="schematic-card">
+        <div class="schematic-svg-wrap">
+          <svg class="topo-svg" viewBox="0 0 900 300" role="img" aria-label="XENOX Hardware Wiring Schematic">
+            <!-- Signal Wires: Sensors to MCU -->
+            <path id="topo-wire-dht" class="topo-wire" d="M 180 50 L 320 50 L 320 110 L 370 110" />
+            <path id="topo-wire-pir" class="topo-wire" d="M 180 115 L 370 115" />
+            <path id="topo-wire-ldr" class="topo-wire" d="M 180 180 L 320 180 L 320 135 L 370 135" />
+            <path id="topo-wire-dist" class="topo-wire" d="M 180 245 L 340 245 L 340 155 L 370 155" />
+
+            <!-- Signal Wires: MCU to Relay & Laptop Gateway -->
+            <path id="topo-wire-fan" class="topo-wire" d="M 530 110 L 590 110 L 590 70 L 640 70" />
+            <path id="topo-wire-lamp" class="topo-wire" d="M 530 140 L 590 140 L 590 180 L 640 180" />
+            <path class="topo-wire pulse-cyan" d="M 450 190 L 450 250 L 640 250" />
+
+            <!-- Sensor Nodes (Left) -->
+            <!-- DHT11 -->
+            <rect class="topo-node" x="20" y="25" width="160" height="50" rx="8" />
+            <text class="topo-text-title" x="32" y="48">DHT11 SENSOR</text>
+            <text class="topo-text-sub" x="32" y="64" id="topo-text-dht">29.5°C · 54%</text>
+
+            <!-- PIR -->
+            <rect class="topo-node" x="20" y="90" width="160" height="50" rx="8" />
+            <text class="topo-text-title" x="32" y="113">PIR MOTION (D3)</text>
+            <text class="topo-text-sub" x="32" y="129" id="topo-text-pir">MOTION DETECTED</text>
+
+            <!-- LDR -->
+            <rect class="topo-node" x="20" y="155" width="160" height="50" rx="8" />
+            <text class="topo-text-title" x="32" y="178">LDR LIGHT (A0)</text>
+            <text class="topo-text-sub" x="32" y="194" id="topo-text-ldr">22% (220 lx)</text>
+
+            <!-- HC-SR04 -->
+            <rect class="topo-node" x="20" y="220" width="160" height="50" rx="8" />
+            <text class="topo-text-title" x="32" y="243">HC-SR04 RADAR</text>
+            <text class="topo-text-sub" x="32" y="259" id="topo-text-dist">150 cm</text>
+
+            <!-- Central Microcontroller: Arduino UNO -->
+            <rect class="topo-node active-mcu" x="370" y="70" width="160" height="120" rx="12" />
+            <text class="topo-text-title" x="450" y="115" text-anchor="middle" style="font-size:14px; fill:var(--cyan);">ARDUINO UNO</text>
+            <text class="topo-text-sub" x="450" y="135" text-anchor="middle">ATmega328P · 16MHz</text>
+            <text class="topo-text-sub" x="450" y="155" text-anchor="middle" style="fill:var(--green);">AUTOMATION CORE</text>
+
+            <!-- Actuators & Output Nodes (Right) -->
+            <!-- Relay CH1 Fan -->
+            <rect class="topo-node" x="640" y="45" width="220" height="55" rx="8" />
+            <text class="topo-text-title" x="655" y="68">RELAY CH1 · PIN D8</text>
+            <text class="topo-text-sub" x="655" y="86" id="topo-text-fan">AC FAN: RUNNING (75W)</text>
+
+            <!-- Relay CH2 Lamp -->
+            <rect class="topo-node" x="640" y="155" width="220" height="55" rx="8" />
+            <text class="topo-text-title" x="655" y="178">RELAY CH2 · PIN D9</text>
+            <text class="topo-text-sub" x="655" y="196" id="topo-text-lamp">ROOM LAMP: OFF</text>
+
+            <!-- Python Server / Gateway -->
+            <rect class="topo-node" x="640" y="225" width="220" height="50" rx="8" />
+            <text class="topo-text-title" x="655" y="248">PYTHON GATEWAY (USB)</text>
+            <text class="topo-text-sub" x="655" y="264">115200 BAUD · REST / WS</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Energy Analytics & Event Audit Log -->
+    <section>
+      <div class="analytics-grid">
+        <!-- Energy & Cost Savings Card -->
+        <div class="stat-box">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-family:var(--font-brand); font-size:1.15rem; font-weight:700; color:#fff;">ENERGY EFFICIENCY MODEL</div>
+            <span class="badge badge-optimal">ECO OPTIMIZED</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Projected savings over unautomated continuous runtime</p>
+
+          <div class="energy-summary-cards">
+            <div class="stat-box">
+              <span class="stat-box-title">Daily Energy Saved</span>
+              <div class="stat-box-num cyan" id="val-energy-saved-kwh">0.65 kWh</div>
+              <span style="font-size:0.7rem; color:var(--text-dim);">vs. manual baseline</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-box-title">Monthly Cost Saved</span>
+              <div class="stat-box-num green" id="val-energy-saved-cost">$2.93</div>
+              <span style="font-size:0.7rem; color:var(--text-dim);">at $0.15 / kWh</span>
+            </div>
+          </div>
+
+          <div style="margin-top:14px; padding:12px; background:#02060c; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between;">
+            <span><i data-lucide="leaf" style="width:14px;height:14px;color:var(--green);vertical-align:middle;"></i> Annual Carbon Reduction:</span>
+            <strong id="val-energy-saved-co2" style="color:var(--green); font-family:var(--font-mono);">195 kg CO₂</strong>
+          </div>
+        </div>
+
+        <!-- Event Audit Log Table -->
+        <div class="stat-box">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div style="font-family:var(--font-brand); font-size:1.15rem; font-weight:700; color:#fff;">EVENT AUDIT TRAIL</div>
+              <p style="font-size:0.75rem; color:var(--text-muted);">Real-time relay triggering and sensor transitions</p>
+            </div>
+            <button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;" onclick="exportEventLogCsv()">
+              <i data-lucide="download" style="width:12px;height:12px;"></i> Export CSV
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="event-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Source</th>
+                  <th>Condition Trigger</th>
+                  <th>Relay Action</th>
+                </tr>
+              </thead>
+              <tbody id="event-log-table-body">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 7: Developer Hub & Code Export -->
+    <section id="developer" class="dev-hub-card">
+      <div class="tab-nav">
+        <button type="button" class="tab-btn active" id="tab-btn-ino">
+          <i data-lucide="file-code" style="width:15px;height:15px;"></i> Xenox_Automation.ino
+        </button>
+        <button type="button" class="tab-btn" id="tab-btn-py" onclick="alert('Python Serial Gateway server script (server.py) is ready in your project directory! Run `python server.py` to connect Arduino USB.')">
+          <i data-lucide="terminal" style="width:15px;height:15px;"></i> server.py (Python Gateway)
+        </button>
+      </div>
+
+      <div class="code-container">
+        <button type="button" class="copy-code-btn" onclick="copyCodeToClipboard('code-arduino-ino')">
+          <i data-lucide="copy" style="width:12px;height:12px;vertical-align:middle;"></i> Copy Code
+        </button>
+        <pre class="code-block" id="code-arduino-ino"></pre>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <div class="footer-brand">
+        <img src="assets/xenox-logo.png" alt="XENOX" style="height:24px;">
+        <span>XENOX Smart Automation System — Complete Web Console</span>
+      </div>
+      <div>
+        Hardware: Arduino UNO · DHT11 · PIR HC-SR501 · LDR Photoresistor · HC-SR04 Ultrasonic · 2-Ch Relay
+      </div>
+    </footer>
+  </div>
+
+  <!-- Mobile Companion App Preview Modal -->
+  <div class="modal-backdrop" id="phone-preview-modal" onclick="if(event.target === this) togglePhoneModal(false);">
+    <div class="phone-mockup-frame">
+      <button type="button" class="close-modal-btn" onclick="togglePhoneModal(false)" title="Close Preview">&times;</button>
+      <div class="phone-notch"></div>
+      
+      <div class="phone-screen">
+        <div class="phone-header">
+          <div>
+            <div class="phone-title">XENOX MOBILE</div>
+            <div style="font-size:0.65rem; color:var(--text-muted); font-family:var(--font-mono);">SYNCED WITH CONSOLE</div>
+          </div>
+          <span class="badge badge-optimal" style="font-size:0.65rem;">CONNECTED</span>
+        </div>
+
+        <!-- Phone Card 1: Environment Overview -->
+        <div class="phone-card">
+          <div style="font-family:var(--font-brand); font-size:0.85rem; font-weight:700; color:#fff; text-transform:uppercase;">
+            Environment Overview
+          </div>
+          <div class="phone-dual-gauges">
+            <div style="text-align:center;">
+              <div id="phone-val-temp" style="font-family:var(--font-brand); font-size:1.6rem; font-weight:700; color:var(--cyan);">29.5°C</div>
+              <div style="font-size:0.65rem; color:var(--text-muted); font-family:var(--font-mono);">TEMP: OPTIMAL</div>
+            </div>
+            <div style="width:1px; height:36px; background:rgba(255,255,255,0.1);"></div>
+            <div style="text-align:center;">
+              <div id="phone-val-hum" style="font-family:var(--font-brand); font-size:1.6rem; font-weight:700; color:var(--green);">54%</div>
+              <div style="font-size:0.65rem; color:var(--text-muted); font-family:var(--font-mono);">HUM: NORMAL</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone Card 2: Security & Proximity -->
+        <div class="phone-card">
+          <div style="font-family:var(--font-brand); font-size:0.85rem; font-weight:700; color:#fff; text-transform:uppercase;">
+            Security &amp; Proximity
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <div>
+              <div style="font-size:0.7rem; color:var(--text-muted);">Proximity Distance</div>
+              <div id="phone-val-dist" style="font-family:var(--font-brand); font-size:1.4rem; font-weight:700; color:#fff;">150 cm</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:0.7rem; color:var(--text-muted);">Motion Status</div>
+              <div id="phone-val-motion" style="font-family:var(--font-mono); font-size:0.85rem; font-weight:700; color:var(--cyan);">DETECTED</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phone Card 3: Controls & Automation -->
+        <div class="phone-card">
+          <div style="font-family:var(--font-brand); font-size:0.85rem; font-weight:700; color:#fff; text-transform:uppercase; margin-bottom:10px;">
+            Controls &amp; Automation
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button type="button" class="btn btn-cyan" id="phone-btn-fan" style="width:100%; justify-content:center; font-size:0.85rem;" onclick="toggleRelayManual('fan')">
+              FAN: ON
+            </button>
+            <button type="button" class="btn btn-subtle" id="phone-btn-lamp" style="width:100%; justify-content:center; font-size:0.85rem;" onclick="toggleRelayManual('lamp')">
+              LAMP: OFF
+            </button>
+          </div>
+        </div>
+
+        <div style="text-align:center; font-size:0.65rem; color:var(--text-dim); margin-top:auto;">
+          Next Step: Dedicated Native Mobile App Build
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
