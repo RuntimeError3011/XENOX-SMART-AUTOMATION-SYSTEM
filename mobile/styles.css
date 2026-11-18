@@ -1,0 +1,546 @@
+/* ==========================================================================
+   XENOX MOBILE APP — NATIVE SMARTPHONE STYLES
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Palette */
+  --bg-app: #070d19;
+  --bg-card: rgba(14, 25, 46, 0.85);
+  --bg-card-active: rgba(18, 35, 65, 0.95);
+  --bg-recessed: #040812;
+
+  --cyan: #00f0ff;
+  --cyan-dim: #009cb0;
+  --cyan-glow: rgba(0, 240, 255, 0.35);
+  --cyan-tint: rgba(0, 240, 255, 0.1);
+
+  --amber: #ffaa00;
+  --amber-glow: rgba(255, 170, 0, 0.35);
+  --amber-tint: rgba(255, 170, 0, 0.12);
+
+  --green: #00f59b;
+  --green-glow: rgba(0, 245, 155, 0.35);
+  --green-tint: rgba(0, 245, 155, 0.12);
+
+  --red: #ff3366;
+  --red-glow: rgba(255, 51, 102, 0.4);
+
+  --text-main: #f0f6fc;
+  --text-muted: #8b9bb4;
+  --text-dim: #506482;
+
+  --border-cyan: rgba(0, 240, 255, 0.22);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  --font-brand: 'Rajdhani', -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-x: hidden;
+  height: 100%;
+  overscroll-behavior-y: none;
+  user-select: none;
+}
+
+/* Mobile Screen Wrapper */
+.mobile-app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+/* Phone System Status Bar */
+.mobile-system-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 8px) 18px 8px 18px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(7, 13, 25, 0.95);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.system-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* App Header */
+.mobile-header {
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(10, 19, 36, 0.85);
+  backdrop-filter: blur(16px);
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo-small {
+  height: 32px;
+  width: auto;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.4));
+}
+
+.brand-text-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-family: var(--font-brand);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.brand-role {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--cyan-tint);
+  border: 1px solid var(--border-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.beacon-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+/* Facility Zone Selector Pill on Mobile */
+.mobile-zone-strip {
+  padding: 8px 18px;
+  background: #050b16;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zone-selector-select {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Scrollable Content */
+.mobile-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px calc(var(--safe-bottom) + 80px) 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Section Header */
+.section-tag {
+  font-family: var(--font-brand);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.section-tag::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: var(--cyan);
+  border-radius: 2px;
+}
+
+/* Dual Arc Overview Card (From Architecture Diagram) */
+.mobile-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-cyan);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.dual-gauge-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.gauge-cell {
+  background: var(--bg-recessed);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.gauge-svg-mobile {
+  width: 90px;
+  height: 90px;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg-mobile {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 8;
+}
+
+.gauge-fill-mobile {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 235;
+  stroke-dashoffset: 80;
+  transition: stroke-dashoffset 0.6s ease;
+  filter: drop-shadow(0 0 6px var(--cyan-glow));
+}
+.gauge-fill-mobile.green {
+  stroke: var(--green);
+  filter: drop-shadow(0 0 6px var(--green-glow));
+}
+
+.gauge-text-overlay {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gauge-val-big {
+  font-family: var(--font-brand);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.gauge-sub-pill {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Security & Proximity Card */
+.proximity-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 10px;
+}
+
+.stat-bubble {
+  background: var(--bg-recessed);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bubble-title {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.bubble-metric {
+  font-family: var(--font-brand);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 4px 0;
+}
+
+.bubble-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bubble-badge.active-green { color: var(--green); }
+.bubble-badge.active-amber { color: var(--amber); }
+
+/* Actuator Relay Control Cards (From Architecture Diagram) */
+.controls-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-tile {
+  background: var(--bg-recessed);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.control-tile.is-energized-fan {
+  border-color: var(--cyan);
+  background: rgba(0, 240, 255, 0.05);
+  box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.08);
+}
+
+.control-tile.is-energized-lamp {
+  border-color: var(--amber);
+  background: rgba(255, 170, 0, 0.05);
+  box-shadow: inset 0 0 15px rgba(255, 170, 0, 0.08);
+}
+
+.tile-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tile-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background: #0a1324;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--text-muted);
+}
+.is-energized-fan .tile-icon-box {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan-glow);
+}
+.is-energized-lamp .tile-icon-box {
+  color: var(--amber);
+  border-color: var(--amber);
+  box-shadow: 0 0 10px var(--amber-glow);
+}
+
+.tile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tile-name {
+  font-family: var(--font-brand);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tile-status-text {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.tile-right-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.mode-pill-mini {
+  display: inline-flex;
+  background: #03060c;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--cyan);
+  cursor: pointer;
+}
+
+.power-btn-round {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: #081120;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.power-btn-round:active {
+  transform: scale(0.92);
+}
+
+.power-btn-round.on-fan {
+  background: var(--cyan);
+  color: #000;
+  border-color: var(--cyan);
+  box-shadow: 0 0 15px var(--cyan-glow);
+}
+
+.power-btn-round.on-lamp {
+  background: var(--amber);
+  color: #000;
+  border-color: var(--amber);
+  box-shadow: 0 0 15px var(--amber-glow);
+}
+
+/* Quick Facility Profile Selector */
+.facility-chips-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.facility-chips-scroll::-webkit-scrollbar { display: none; }
+
+.facility-chip-btn {
+  white-space: nowrap;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.facility-chip-btn.active {
+  background: var(--cyan-tint);
+  border-color: var(--cyan);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Bottom Native App Tab Bar */
+.mobile-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(6, 12, 23, 0.94);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-cyan);
+  padding: 8px 16px calc(var(--safe-bottom) + 8px) 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+}
+
+.tab-bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-family: var(--font-brand);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.tab-bar-item.active {
+  color: var(--cyan);
+}
+.tab-bar-item:active {
+  transform: scale(0.92);
+}
+
+/* Spinning Fan Animation on Mobile */
+.spinning-fan-icon {
+  animation: spin-mobile 0.5s linear infinite;
+}
+@keyframes spin-mobile {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

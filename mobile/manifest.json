@@ -1,0 +1,17 @@
+{
+  "name": "XENOX Mobile Automation",
+  "short_name": "XENOX",
+  "description": "Smart Facility & Room Automation Controller",
+  "start_url": "index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070d19",
+  "theme_color": "#070d19",
+  "icons": [
+    {
+      "src": "assets/xenox-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

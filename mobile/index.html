@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#070d19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>XENOX Mobile — Facility &amp; Room Manager</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Mobile Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="mobile-app-shell">
+    
+    <!-- Phone Top Status Bar -->
+    <div class="mobile-system-bar">
+      <span id="mobile-clock">09:41</span>
+      <div class="system-icons">
+        <i data-lucide="signal" style="width:13px;height:13px;"></i>
+        <i data-lucide="wifi" style="width:13px;height:13px;"></i>
+        <i data-lucide="battery-charging" style="width:15px;height:15px;color:var(--green);"></i>
+      </div>
+    </div>
+
+    <!-- Mobile App Header -->
+    <header class="mobile-header">
+      <div class="brand-row">
+        <img src="assets/xenox-logo.png" alt="XENOX" class="brand-logo-small">
+        <div class="brand-text-col">
+          <span class="brand-name">XENOX</span>
+          <span class="brand-role">Facility Mobile</span>
+        </div>
+      </div>
+
+      <div class="header-badge">
+        <span class="beacon-dot"></span>
+        <span>CONNECTED</span>
+      </div>
+    </header>
+
+    <!-- Zone Selector Strip -->
+    <div class="mobile-zone-strip">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <i data-lucide="map-pin" style="width:13px;height:13px;color:var(--cyan);"></i>
+        <select class="zone-selector-select" onchange="selectMobileZone(this.value)">
+          <option value="hotel">🏨 Hotel Suite 402</option>
+          <option value="hospital">🏥 Hospital Ward 3B</option>
+          <option value="office">🏢 Corporate Conf A</option>
+          <option value="night">🌙 Off-Peak Energy Zone</option>
+        </select>
+      </div>
+      <span style="font-family:var(--font-mono); font-size:0.65rem; color:var(--text-dim);">NODE UNO #1</span>
+    </div>
+
+    <!-- Scrollable Content Screen -->
+    <main class="mobile-content">
+
+      <!-- Section 1: Environment Overview (Matches Architecture Diagram) -->
+      <div>
+        <div class="section-tag">Environment Overview</div>
+        
+        <div class="mobile-card">
+          <div class="dual-gauge-row">
+            <!-- Temperature Gauge Cell -->
+            <div class="gauge-cell">
+              <svg class="gauge-svg-mobile" viewBox="0 0 90 90">
+                <circle class="gauge-bg-mobile" cx="45" cy="45" r="37.5"></circle>
+                <circle class="gauge-fill-mobile" id="m-gauge-temp" cx="45" cy="45" r="37.5"></circle>
+              </svg>
+              <div class="gauge-text-overlay">
+                <span class="gauge-val-big" id="m-val-temp">22°C</span>
+                <span class="gauge-sub-pill" id="m-pill-temp-comfort">Temp: Optimal</span>
+              </div>
+            </div>
+
+            <!-- Humidity Gauge Cell -->
+            <div class="gauge-cell">
+              <svg class="gauge-svg-mobile" viewBox="0 0 90 90">
+                <circle class="gauge-bg-mobile" cx="45" cy="45" r="37.5"></circle>
+                <circle class="gauge-fill-mobile green" id="m-gauge-hum" cx="45" cy="45" r="37.5"></circle>
+              </svg>
+              <div class="gauge-text-overlay">
+                <span class="gauge-val-big" id="m-val-hum" style="color:var(--green);">45%</span>
+                <span class="gauge-sub-pill" id="m-pill-hum-comfort">Hum: Normal</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Security & Proximity (Matches Architecture Diagram) -->
+      <div>
+        <div class="section-tag">Security &amp; Proximity</div>
+
+        <div class="mobile-card">
+          <div class="proximity-row">
+            <!-- Proximity Bubble -->
+            <div class="stat-bubble">
+              <div class="bubble-title">Proximity Clearance</div>
+              <div class="bubble-metric" id="m-val-dist">150 cm</div>
+              <div class="bubble-badge active-green">
+                <i data-lucide="check" style="width:11px;height:11px;"></i> Entry Clear
+              </div>
+            </div>
+
+            <!-- Motion Status Bubble -->
+            <div class="stat-bubble">
+              <div class="bubble-title">Motion Occupancy</div>
+              <div class="bubble-badge active-amber" id="m-val-motion" style="font-size:1rem; margin:6px 0;">
+                DETECTED
+              </div>
+              <div style="font-family:var(--font-mono); font-size:0.62rem; color:var(--text-dim);" id="m-val-last-motion">
+                Last: 10:30:05 AM
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Controls & Automation (Matches Architecture Diagram) -->
+      <div>
+        <div class="section-tag">Controls &amp; Automation</div>
+
+        <div class="controls-grid">
+          <!-- Fan Control Tile -->
+          <div class="control-tile is-energized-fan" id="m-tile-fan">
+            <div class="tile-left">
+              <div class="tile-icon-box">
+                <i data-lucide="fan" id="m-icon-fan" class="spinning-fan-icon" style="width:22px;height:22px;"></i>
+              </div>
+              <div class="tile-info">
+                <span class="tile-name">Climate Fan</span>
+                <span class="tile-status-text" id="m-text-fan-status">Active · 75W (75 CFM)</span>
+              </div>
+            </div>
+
+            <div class="tile-right-controls">
+              <button type="button" class="mode-pill-mini" id="m-pill-fan-mode" onclick="toggleFanMode()">
+                AUTO
+              </button>
+              <button type="button" class="power-btn-round on-fan" id="m-btn-fan-power" onclick="toggleFanPower()" title="Toggle Fan">
+                <i data-lucide="power" style="width:18px;height:18px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Room Lamp Control Tile -->
+          <div class="control-tile" id="m-tile-lamp">
+            <div class="tile-left">
+              <div class="tile-icon-box">
+                <i data-lucide="lightbulb" style="width:22px;height:22px;"></i>
+              </div>
+              <div class="tile-info">
+                <span class="tile-name">Room Lighting</span>
+                <span class="tile-status-text" id="m-text-lamp-status">Standby · 0W</span>
+              </div>
+            </div>
+
+            <div class="tile-right-controls">
+              <button type="button" class="mode-pill-mini" id="m-pill-lamp-mode" onclick="toggleLampMode()">
+                AUTO
+              </button>
+              <button type="button" class="power-btn-round" id="m-btn-lamp-power" onclick="toggleLampPower()" title="Toggle Lighting">
+                <i data-lucide="power" style="width:18px;height:18px;"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Facility Profile Buttons -->
+      <div>
+        <div class="section-tag">Quick Profiles</div>
+        <div class="facility-chips-scroll">
+          <button type="button" class="facility-chip-btn active" onclick="selectMobileZone('hotel')">🏨 Hotel Suite</button>
+          <button type="button" class="facility-chip-btn" onclick="selectMobileZone('hospital')">🏥 Hospital Ward</button>
+          <button type="button" class="facility-chip-btn" onclick="selectMobileZone('office')">🏢 Corporate Office</button>
+          <button type="button" class="facility-chip-btn" onclick="selectMobileZone('night')">🌙 Eco Setback</button>
+        </div>
+      </div>
+
+      <!-- Quick Motion Simulation Trigger for testing -->
+      <div style="margin-top:4px;">
+        <button type="button" class="btn btn-outline" style="width:100%; font-size:0.8rem; padding:10px; border-radius:var(--radius-sm);" onclick="triggerMobileMotion()">
+          <i data-lucide="user-check" style="width:14px;height:14px;"></i> Register Walk-In Motion
+        </button>
+      </div>
+
+    </main>
+
+    <!-- Native Mobile Tab Bar -->
+    <nav class="mobile-tab-bar">
+      <a href="#overview" class="tab-bar-item active">
+        <i data-lucide="layout-grid" style="width:18px;height:18px;"></i>
+        <span>Overview</span>
+      </a>
+      <a href="#controls" class="tab-bar-item" onclick="triggerHaptic(10)">
+        <i data-lucide="sliders" style="width:18px;height:18px;"></i>
+        <span>Controls</span>
+      </a>
+      <a href="#energy" class="tab-bar-item" onclick="triggerHaptic(10)">
+        <i data-lucide="zap" style="width:18px;height:18px;"></i>
+        <span>Energy</span>
+      </a>
+      <a href="../index.html" class="tab-bar-item" onclick="triggerHaptic(10)">
+        <i data-lucide="monitor" style="width:18px;height:18px;"></i>
+        <span>Desktop Web</span>
+      </a>
+    </nav>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

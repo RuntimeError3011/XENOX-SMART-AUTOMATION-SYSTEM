@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "XENOX Mobile",
+    "slug": "xenox-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "../assets/xenox-logo.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#070d19"
+      },
+      "package": "com.runtimeerror3011.xenoxmobile"
+    },
+    "plugins": [
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#070d19",
+          "image": "../assets/xenox-logo.png",
+          "imageWidth": 200
+        }
+      ]
+    ]
+  }
+}
